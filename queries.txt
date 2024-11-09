@@ -1,0 +1,298 @@
+show dbs;
+admin      40.00 KiB
+config    108.00 KiB
+ecom       72.00 KiB
+local      72.00 KiB
+zenclass   80.00 KiB
+use zencalss;
+switched to db zencalss
+
+// Create the `users` collection
+db.createCollection("users");
+db.users.insertOne({
+  user_id: 1, 
+  name: "John Doe", 
+  email: "john@example.com", 
+  phone: "1234567890", 
+  batch: "Batch-1"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7efba898c650fa497f97')
+}
+// Create the `codekata` collection
+db.createCollection("codekata");
+db.codekata.insertOne({
+  user_id: 1, 
+  problems_solved: 50, 
+  last_solved_date: new Date("2023-10-15")
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f03a898c650fa497f98')
+}
+//Create the `attendance` collection
+db.createCollection("attendance");
+db.attendance.insertOne({
+  attendance_id: 1, 
+  user_id: 1, 
+  date: new Date("2023-10-15"), 
+  status: "Present"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f0ca898c650fa497f99')
+}
+//Create the `topics` collection
+db.createCollection("topics");
+db.topics.insertOne({
+  topic_id: 1, 
+  topic_name: "JavaScript Basics", 
+  date: new Date("2023-10-01"), 
+  batch: "Batch-1"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f13a898c650fa497f9a')
+}
+//Create the `tasks` collection
+db.createCollection("tasks");
+db.tasks.insertOne({
+  task_id: 1, 
+  user_id: 1, 
+  topic_id: 1, 
+  submission_date: new Date("2023-10-02"), 
+  status: "Submitted"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f1aa898c650fa497f9b')
+}
+//Create the `company_drives` collection
+db.createCollection("company_drives");
+db.company_drives.insertOne({
+  drive_id: 1, 
+  company_name: "TechCorp", 
+  date: new Date("2023-10-20"), 
+  position: "Software Developer"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f20a898c650fa497f9c')
+}
+//Create the `drive_applications` collection (for student applications to company drives)
+db.createCollection("drive_applications");
+db.drive_applications.insertOne({
+  application_id: 1, 
+  user_id: 1, 
+  drive_id: 1
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f26a898c650fa497f9d')
+}
+// Create the `mentors` collection
+db.createCollection("mentors");
+db.mentors.insertOne({
+  mentor_id: 1, 
+  name: "Jane Smith", 
+  email: "jane.smith@example.com"
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f2ba898c650fa497f9e')
+}
+//Create the `mentor_assignments` collection (for mentors assigned to mentees)
+db.createCollection("mentor_assignments");
+db.mentor_assignments.insertOne({
+  assignment_id: 1, 
+  mentor_id: 1, 
+  user_id: 1
+});
+{
+  acknowledged: true,
+  insertedId: ObjectId('672f7f34a898c650fa497f9f')
+}
+<<<<-----TASKS QUERIES --->>>
+
+//1. Find all the topics and tasks which are taught in the month of October
+db.topics.aggregate([
+  {
+    $match: {
+      date: {
+        $gte: new Date("2023-10-01"),
+        $lt: new Date("2023-11-01")
+      }
+    }
+  },
+  {
+    $lookup: {
+      from: "tasks",
+      localField: "topic_id",
+      foreignField: "topic_id",
+      as: "tasks"
+    }
+  },
+  {
+    $project: {
+      topic_name: 1,
+      date: 1,
+      "tasks.task_id": 1,
+      "tasks.status": 1,
+      "tasks.submission_date": 1
+    }
+  }
+]);
+{
+  _id: ObjectId('672f7f13a898c650fa497f9a'),
+  topic_name: 'JavaScript Basics',
+  date: 2023-10-01T00:00:00.000Z,
+  tasks: [
+    {
+      task_id: 1,
+      submission_date: 2023-10-02T00:00:00.000Z,
+      status: 'Submitted'
+    }
+  ]
+}
+//2. Find all the company drives which appeared between 15 Oct 2020 and 31 Oct 2020
+db.company_drives.find({
+  date: {
+    $gte: new Date("2020-10-15"),
+    $lte: new Date("2020-10-31")
+  }
+});
+//3. Find all the company drives and students who appeared for the placement
+db.drive_applications.aggregate([
+  {
+    $lookup: {
+      from: "company_drives",
+      localField: "drive_id",
+      foreignField: "drive_id",
+      as: "drive_info"
+    }
+  },
+  {
+    $lookup: {
+      from: "users",
+      localField: "user_id",
+      foreignField: "user_id",
+      as: "student_info"
+    }
+  },
+  {
+    $project: {
+      "drive_info.company_name": 1,
+      "drive_info.date": 1,
+      "student_info.name": 1
+    }
+  }
+]);
+{
+  _id: ObjectId('672f7f26a898c650fa497f9d'),
+  drive_info: [
+    {
+      company_name: 'TechCorp',
+      date: 2023-10-20T00:00:00.000Z
+    }
+  ],
+  student_info: [
+    {
+      name: 'John Doe'
+    }
+  ]
+}
+//4. Find the number of problems solved by each user in CodeKata
+db.codekata.aggregate([
+  {
+    $lookup: {
+      from: "users",
+      localField: "user_id",
+      foreignField: "user_id",
+      as: "user_info"
+    }
+  },
+  {
+    $project: {
+      "user_info.name": 1,
+      problems_solved: 1
+    }
+  }
+]);
+{
+  _id: ObjectId('672f7f03a898c650fa497f98'),
+  problems_solved: 50,
+  user_info: [
+    {
+      name: 'John Doe'
+    }
+  ]
+}
+//5. Find all the mentors with more than 15 mentees
+db.mentor_assignments.aggregate([
+  {
+    $group: {
+      _id: "$mentor_id",
+      mentee_count: { $sum: 1 }
+    }
+  },
+  {
+    $match: {
+      mentee_count: { $gt: 15 }
+    }
+  },
+  {
+    $lookup: {
+      from: "mentors",
+      localField: "_id",
+      foreignField: "mentor_id",
+      as: "mentor_info"
+    }
+  },
+  {
+    $project: {
+      "mentor_info.name": 1,
+      mentee_count: 1
+    }
+  }
+]);
+//6. Find the number of users who were absent and whose tasks were not submitted between 15 Oct 2020 and 31 Oct 2020
+db.attendance.aggregate([
+  {
+    $match: {
+      status: "Absent",
+      date: {
+        $gte: new Date("2020-10-15"),
+        $lte: new Date("2020-10-31")
+      }
+    }
+  },
+  {
+    $lookup: {
+      from: "tasks",
+      localField: "user_id",
+      foreignField: "user_id",
+      as: "task_info"
+    }
+  },
+  {
+    $unwind: "$task_info"
+  },
+  {
+    $match: {
+      "task_info.status": "Not Submitted",
+      "task_info.submission_date": {
+        $gte: new Date("2020-10-15"),
+        $lte: new Date("2020-10-31")
+      }
+    }
+  },
+  {
+    $group: {
+      _id: "$user_id"
+    }
+  },
+  {
+    $count: "total_absent_and_not_submitted"
+  }
+]);
